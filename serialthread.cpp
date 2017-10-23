@@ -189,41 +189,31 @@ void SerialThread::processMessage()
     qint16 *pBuf16;
     int numPts;
     static QVector<double> y(PLOTTING_BUF_DEPTH);
-    static qint32 avgAccum = 0;
-    static int avgCnt = 0;
     static int bufCnt = 0;
     bool fBufReady = false;
 
     switch (m_msg.msg_id) {
-    case '.':
     case 'a':
     case 'b':
     case 'c':
     case 'd':
+    case 'e':
     case 'f':
-    case 'o':
-    case 'p':
+    case 'g':
         if (m_msg.data_size) {
             memcpy((void *)&(m_msg.data), (const void*)m_rxBuf.constData(), m_msg.data_size);
             m_rxBuf.remove(0, m_msg.data_size);
         }
         emit this->serialDataReady(m_msg);
         break;
-    case 'r':
     case 's':
         pBuf16 = (qint16 *)m_rxBuf.constData();
         numPts = m_msg.data_size / 2;
         for (int i = 0; i < numPts; i++) {
-            avgAccum += pBuf16[i];
-            avgCnt++;
-            avgCnt %= AVG_COUNTER_MAX;
-            if (avgCnt == 0) {
-                y[bufCnt++] = avgAccum / AVG_COUNTER_MAX;
-                avgAccum = 0;
-                bufCnt %= PLOTTING_BUF_DEPTH;
-                if (bufCnt == 0) {
-                    fBufReady = true;
-                }
+            y[bufCnt++] = pBuf16[i];
+            bufCnt %= PLOTTING_BUF_DEPTH;
+            if (bufCnt == 0) {
+                fBufReady = true;
             }
         }
         m_rxBuf.remove(0, m_msg.data_size);

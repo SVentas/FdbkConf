@@ -32,9 +32,9 @@ private slots:
     void serialPortError(const QString &s);
     void serialPortTimeout(const QString &s);
     void streamingGO();
-    void scaningGO();
     void streamingUpdateChannelID(bool checked);
     void fbkEnableUpdate(bool fEnable);
+    void fbkErrInvUpdate(bool fEnable);
     void fbkKpUpdate(double k);
     void fbkKiUpdate(double k);
     void fbkKdUpdate(double k);

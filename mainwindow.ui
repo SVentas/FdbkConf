@@ -147,6 +147,13 @@
           </property>
          </widget>
         </item>
+        <item row="0" column="1">
+         <widget class="QCheckBox" name="checkFBKErrInv">
+          <property name="text">
+           <string>Invert Error</string>
+          </property>
+         </widget>
+        </item>
        </layout>
       </widget>
       <widget class="QWidget" name="tabStreaming">
@@ -161,20 +168,6 @@
           </property>
           <property name="checked">
            <bool>true</bool>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QRadioButton" name="radioCE">
-          <property name="text">
-           <string>CE - center error</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QRadioButton" name="radioSum">
-          <property name="text">
-           <string>Sum - 4D sum</string>
           </property>
          </widget>
         </item>
@@ -205,6 +198,19 @@
            <string>Channel D</string>
           </property>
          </widget>
+        </item>
+        <item>
+         <spacer name="verticalSpacer">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>40</height>
+           </size>
+          </property>
+         </spacer>
         </item>
        </layout>
       </widget>
@@ -246,7 +252,6 @@
    <addaction name="separator"/>
    <addaction name="actionStream"/>
    <addaction name="separator"/>
-   <addaction name="actionScan"/>
   </widget>
   <widget class="QStatusBar" name="statusBar"/>
   <action name="actionConnect">
@@ -273,14 +278,6 @@
     <string>Reboot</string>
    </property>
   </action>
-  <action name="actionScan">
-   <property name="enabled">
-    <bool>false</bool>
-   </property>
-   <property name="text">
-    <string>Scan</string>
-   </property>
-  </action>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
  <customwidgets>
@@ -294,7 +291,6 @@
  <tabstops>
   <tabstop>tabWidget</tabstop>
   <tabstop>radioFE</tabstop>
-  <tabstop>radioSum</tabstop>
   <tabstop>radioChnA</tabstop>
   <tabstop>radioChnB</tabstop>
   <tabstop>radioChnC</tabstop>

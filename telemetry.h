@@ -17,11 +17,9 @@
 #define TELEMETRY_MSG_DATA_SIZE_ID      0x02
 
 /* Number of samples in streaming buffer.  */
-#define STREAMING_BUF_DEPTH             64
-/* Averaging coefficient.                  */
-#define AVG_COUNTER_MAX                 4
+#define STREAMING_BUF_DEPTH             16
 /* Number of samples in plotting buffer.   */
-#define PLOTTING_BUF_DEPTH              (STREAMING_BUF_DEPTH / AVG_COUNTER_MAX)
+#define PLOTTING_BUF_DEPTH              (STREAMING_BUF_DEPTH * 2)
 
 typedef struct tagTelemetryMessage {
     quint8 msg_id;     /* Telemetry message ID.           */

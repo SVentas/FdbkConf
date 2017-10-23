@@ -26,8 +26,6 @@ MainWindow::MainWindow(QWidget *parent) :
             this, SLOT(serialPortConnect()));
     connect(ui->actionStream, SIGNAL(triggered()),
             this, SLOT(streamingGO()));
-    connect(ui->actionScan, SIGNAL(triggered()),
-            this, SLOT(scaningGO()));
     connect(ui->actionReboot, SIGNAL(triggered()),
             this, SLOT(boardReboot()));
 
@@ -45,6 +43,8 @@ MainWindow::MainWindow(QWidget *parent) :
 
     connect(ui->checkFBKEnable, SIGNAL(clicked(bool)),
             this, SLOT(fbkEnableUpdate(bool)));
+    connect(ui->checkFBKErrInv, SIGNAL(clicked(bool)),
+            this, SLOT(fbkErrInvUpdate(bool)));
     connect(ui->doubleSpinFBKKp, SIGNAL(valueChanged(double)),
             this, SLOT(fbkKpUpdate(double)));
     connect(ui->doubleSpinFBKKi, SIGNAL(valueChanged(double)),
@@ -57,10 +57,6 @@ MainWindow::MainWindow(QWidget *parent) :
             this, SLOT(fbkActPosUpdate(int)));
 
     connect(ui->radioFE, SIGNAL(toggled(bool)),
-            this, SLOT(streamingUpdateChannelID(bool)));
-    connect(ui->radioCE, SIGNAL(toggled(bool)),
-            this, SLOT(streamingUpdateChannelID(bool)));
-    connect(ui->radioSum, SIGNAL(toggled(bool)),
             this, SLOT(streamingUpdateChannelID(bool)));
     connect(ui->radioChnA, SIGNAL(toggled(bool)),
             this, SLOT(streamingUpdateChannelID(bool)));
@@ -96,14 +92,12 @@ MainWindow::~MainWindow()
         if (m_serialTimer.isActive()) {
             m_serialTimer.stop();
             ui->actionStream->setText(tr("Stream"));
-            ui->actionScan->setText(tr("Scan"));
         }
         m_serialThread.disconnect();
         ui->actionConnect->setText(tr("Connect"));
         m_serialPortList->setEnabled(true);
         ui->statusBar->showMessage(tr("Disconnected from: %1").arg(m_serialPortList->currentText()));
         ui->actionStream->setEnabled(false);
-        ui->actionScan->setEnabled(false);
         m_serialConnected = false;
     }
 
@@ -138,14 +132,12 @@ void MainWindow::serialPortConnect()
         if (m_serialTimer.isActive()) {
             m_serialTimer.stop();
             ui->actionStream->setText(tr("Stream"));
-            ui->actionScan->setText(tr("Scan"));
         }
         m_serialThread.disconnect();
         ui->actionConnect->setText(tr("Connect"));
         m_serialPortList->setEnabled(true);
         ui->statusBar->showMessage(tr("Disconnected from: %1").arg(m_serialPortList->currentText()));
         ui->actionStream->setEnabled(false);
-        ui->actionScan->setEnabled(false);
         m_serialConnected = false;
     } else {
         m_serialThread.connect(m_serialPortList->currentData().toString());
@@ -154,7 +146,6 @@ void MainWindow::serialPortConnect()
         ui->statusBar->showMessage(tr("Connected to: %1").arg(m_serialPortList->currentText()));
         m_serialConnected = true;
         ui->actionStream->setEnabled(true);
-        ui->actionScan->setEnabled(true);
         boardReadSettings();
     }
 }
@@ -171,43 +162,21 @@ void MainWindow::streamingGO()
     if (m_serialTimer.isActive()) {
         m_serialTimer.stop();
         ui->actionStream->setText(tr("Stream"));
-        ui->actionScan->setEnabled(true);
-    } else {
-        m_msg.msg_id    = 'T';
+
+        m_msg.msg_id    = 'B';
         m_msg.signature = TELEMETRY_MSG_SIGNATURE;
         m_msg.data_size = sizeof(quint8);
         m_msg.data[0]   = 0;
         sendTelemetryMessage(m_msg);
-
-        ui->actionScan->setEnabled(false);
-        ui->actionStream->setText(tr("STOP"));
-        m_serialTimer.start(20);
-    }
-}
-
-/**
- * @brief MainWindow::scaningGO
- */
-void MainWindow::scaningGO()
-{
-    if (!m_serialConnected) {
-        return;
-    }
-
-    if (m_serialTimer.isActive()) {
-        m_serialTimer.stop();
-        ui->actionScan->setText(tr("Scan"));
-        ui->actionStream->setEnabled(true);
     } else {
-        m_msg.msg_id    = 'T';
+        m_msg.msg_id    = 'B';
         m_msg.signature = TELEMETRY_MSG_SIGNATURE;
         m_msg.data_size = sizeof(quint8);
         m_msg.data[0]   = 1;
         sendTelemetryMessage(m_msg);
 
-        ui->actionStream->setEnabled(false);
-        ui->actionScan->setText(tr("STOP"));
-        m_serialTimer.start(20);
+        ui->actionStream->setText(tr("STOP"));
+        m_serialTimer.start(100);
     }
 }
 
@@ -221,12 +190,10 @@ void MainWindow::serialPortError(const QString &s)
         if (m_serialTimer.isActive()) {
             m_serialTimer.stop();
             ui->actionStream->setText(tr("Stream"));
-            ui->actionScan->setText(tr("Scan"));
         }
         ui->actionConnect->setText(tr("Connect"));
         m_serialPortList->setEnabled(true);
         ui->actionStream->setEnabled(false);
-        ui->actionScan->setEnabled(false);
         m_serialConnected = false;
         ui->statusBar->showMessage(s);
     }
@@ -242,12 +209,10 @@ void MainWindow::serialPortTimeout(const QString &s)
         if (m_serialTimer.isActive()) {
             m_serialTimer.stop();
             ui->actionStream->setText(tr("Stream"));
-            ui->actionScan->setText(tr("Scan"));
         }
         ui->actionConnect->setText(tr("Connect"));
         m_serialPortList->setEnabled(true);
         ui->actionStream->setEnabled(false);
-        ui->actionScan->setEnabled(false);
         m_serialConnected = false;
         ui->statusBar->showMessage(s);
     }
@@ -277,25 +242,16 @@ void MainWindow::processTelemetryMessage(const TelemetryMessage &msg)
 {
     qint16 tmp16;
     quint16 utmp16;
-    static quint32 newPeriodCnt = 0;
 
     switch (msg.msg_id) {
     /*
      * T R A N S M I T T E R   S E C T I O N
      */
-    case '.':
-        if (msg.data_size == 0) {
-            newPeriodCnt++;
-            qDebug() << newPeriodCnt << "New period detected.";
-        }
-        break;
-    case 'A':
-        break;
 
     /*
      * R E C E I V E R   S E C T I O N
      */
-    case 'c': /* Get FBK actuator position. */
+    case 'a': /* Get FBK actuator position. */
         if (msg.data_size == sizeof(quint16)) {
             utmp16 = ((quint16*)msg.data)[0];
             if (utmp16 != ui->sliderFBKActPos->value()) {
@@ -388,11 +344,12 @@ void MainWindow::processStreamData(QVector<double> y)
  */
 void MainWindow::processTimeout()
 {
-    m_msg.msg_id    = 's';
-    m_msg.signature = TELEMETRY_MSG_SIGNATURE;
-    m_msg.data_size = 0;
-
-    sendTelemetryMessage(m_msg);
+    if (ui->checkFBKEnable->isChecked()) {
+        m_msg.msg_id    = 'a';
+        m_msg.signature = TELEMETRY_MSG_SIGNATURE;
+        m_msg.data_size = 0;
+        sendTelemetryMessage(m_msg);
+    }
 }
 
 /**
@@ -401,6 +358,10 @@ void MainWindow::processTimeout()
  */
 void MainWindow::fbkEnableUpdate(bool fEnable)
 {
+    if (!m_serialConnected) {
+        return;
+    }
+
     quint8 fPIDEnable = fEnable;
 
     ui->sliderFBKActPos->setDisabled(fEnable);
@@ -414,11 +375,35 @@ void MainWindow::fbkEnableUpdate(bool fEnable)
 }
 
 /**
+ * @brief MainWindow::fbkErrInvUpdate
+ * @param fEnable - enables/disables the PID loop Error Inverter.
+ */
+void MainWindow::fbkErrInvUpdate(bool fEnable)
+{
+    if (!m_serialConnected) {
+        return;
+    }
+
+    quint8 fErrInvert = fEnable;
+
+    m_msg.msg_id    = 'G';
+    m_msg.signature = TELEMETRY_MSG_SIGNATURE;
+    m_msg.data_size = sizeof(quint8);
+    memcpy((void *)m_msg.data, (void *)&fErrInvert, m_msg.data_size);
+
+    sendTelemetryMessage(m_msg);
+}
+
+/**
  * @brief MainWindow::fbkKpUpdate
  * @param k - new Kp coefficient value.
  */
 void MainWindow::fbkKpUpdate(double k)
 {
+    if (!m_serialConnected) {
+        return;
+    }
+
     m_pid.P = k;
 
     if (m_breakLoopKp) {
@@ -439,6 +424,10 @@ void MainWindow::fbkKpUpdate(double k)
  */
 void MainWindow::fbkKiUpdate(double k)
 {
+    if (!m_serialConnected) {
+        return;
+    }
+
     m_pid.I = k;
 
     if (m_breakLoopKi) {
@@ -459,6 +448,10 @@ void MainWindow::fbkKiUpdate(double k)
  */
 void MainWindow::fbkKdUpdate(double k)
 {
+    if (!m_serialConnected) {
+        return;
+    }
+
     m_pid.D = k;
 
     if (m_breakLoopKd) {
@@ -479,6 +472,10 @@ void MainWindow::fbkKdUpdate(double k)
  */
 void MainWindow::fbkSetpointUpdate(int setpoint)
 {
+    if (!m_serialConnected) {
+        return;
+    }
+
     qint16 newSetpoint = setpoint;
 
     if (m_breakLoopSetpoint) {
@@ -499,6 +496,10 @@ void MainWindow::fbkSetpointUpdate(int setpoint)
  */
 void MainWindow::fbkActPosUpdate(int pos)
 {
+    if (!m_serialConnected) {
+        return;
+    }
+
     qint32 newPos = pos * 16;
     if (newPos > 65535) {
         newPos = 65535;
@@ -509,7 +510,7 @@ void MainWindow::fbkActPosUpdate(int pos)
     if (m_breakLoopActPos) {
         m_breakLoopActPos = false;
     } else {
-        m_msg.msg_id    = 'C';
+        m_msg.msg_id    = 'A';
         m_msg.signature = TELEMETRY_MSG_SIGNATURE;
         m_msg.data_size = sizeof(quint16);
         memcpy((void *)m_msg.data, (void *)&newPos, m_msg.data_size);
@@ -520,31 +521,25 @@ void MainWindow::fbkActPosUpdate(int pos)
 
 /* Available streaming channels. */
 #define STREAMING_CHANNEL_FE    0x00
-#define STREAMING_CHANNEL_CE    0x01
-#define STREAMING_CHANNEL_SUM   0x02
-#define STREAMING_CHANNEL_A     0x03
-#define STREAMING_CHANNEL_B     0x04
-#define STREAMING_CHANNEL_C     0x05
-#define STREAMING_CHANNEL_D     0x06
+#define STREAMING_CHANNEL_A     0x01
+#define STREAMING_CHANNEL_B     0x02
+#define STREAMING_CHANNEL_C     0x03
+#define STREAMING_CHANNEL_D     0x04
 
 /**
  * @brief MainWindow::streamingUpdateChannelID
  */
 void MainWindow::streamingUpdateChannelID(bool checked)
 {
-    if (!checked) {
+    if (!m_serialConnected || !checked) {
         return;
     }
 
-    m_msg.msg_id    = 'S';
+    m_msg.msg_id    = 'C';
     m_msg.signature = TELEMETRY_MSG_SIGNATURE;
     m_msg.data_size = sizeof(quint8);
 
-    if (ui->radioCE->isChecked()) {
-        m_msg.data[0] = STREAMING_CHANNEL_CE;
-    } else if (ui->radioSum->isChecked()) {
-        m_msg.data[0] = STREAMING_CHANNEL_SUM;
-    } else if (ui->radioChnA->isChecked()) {
+    if (ui->radioChnA->isChecked()) {
         m_msg.data[0] = STREAMING_CHANNEL_A;
     } else if (ui->radioChnB->isChecked()) {
         m_msg.data[0] = STREAMING_CHANNEL_B;
@@ -564,6 +559,10 @@ void MainWindow::streamingUpdateChannelID(bool checked)
  */
 void MainWindow::boardReboot()
 {
+    if (!m_serialConnected) {
+        return;
+    }
+
     m_msg.msg_id    = 'X';
     m_msg.signature = TELEMETRY_MSG_SIGNATURE;
     m_msg.data_size = 0;
@@ -573,7 +572,7 @@ void MainWindow::boardReboot()
 void MainWindow::boardReadSettings()
 {
     /* Reads FBK actuator position. */
-    m_msg.msg_id    = 'c';
+    m_msg.msg_id    = 'a';
     m_msg.signature = TELEMETRY_MSG_SIGNATURE;
     m_msg.data_size = 0;
     sendTelemetryMessage(m_msg);
